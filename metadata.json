@@ -1,0 +1,6 @@
+{
+  "name": "Student Attendance Management System",
+  "description": "A complete, professional B.Tech Final Year Student Attendance Management System featuring faculty authentication, department/subject/student/attendance CRUD, visual analytics, reports generation, dark mode, and downloadable Python/Flask source code with MySQL schemas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
