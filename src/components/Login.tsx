@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Mail, Lock, LogIn, Key, UserCheck, AlertCircle, X, HelpCircle } from "lucide-react";
-import { googleSignIn } from "../lib/firebaseAuth";
 
 interface LoginProps {
   onLoginSuccess: (user: any) => void;
@@ -123,37 +122,43 @@ export default function Login({ onLoginSuccess, onNotify, onNavigateToRegister }
     setSandboxCode(null);
   };
 
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === "GOOGLE_SIGNIN_SUCCESS") {
+        const user = event.data.user;
+        if (user) {
+          onNotify("Authenticated via Google successfully!", "success");
+          onLoginSuccess(user);
+        } else {
+          onNotify("Failed to retrieve Google profile user data", "error");
+        }
+        setLoading(false);
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [onLoginSuccess, onNotify]);
+
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      const authResult = await googleSignIn();
-      if (!authResult) {
-        onNotify("Google Sign-In canceled or failed", "error");
+      const redirectUri = `${window.location.origin}/api/auth/google/callback`;
+      const urlResponse = await fetch(`/api/auth/google/url?redirect_uri=${encodeURIComponent(redirectUri)}`);
+      if (!urlResponse.ok) {
+        throw new Error("Failed to generate Google Sign-In authorization URL.");
+      }
+      const { url } = await urlResponse.json();
+
+      // Open OAuth directly in popup
+      const authWindow = window.open(url, "google_oauth_popup", "width=500,height=600");
+      if (!authWindow) {
+        onNotify("Please allow popups to sign in with Google.", "error");
         setLoading(false);
         return;
       }
-
-      const response = await fetch("/api/auth/google-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: authResult.user.email,
-          name: authResult.user.displayName,
-          photo: authResult.user.photoURL,
-        }),
-      });
-
-      const resJson = await response.json();
-      if (resJson.success) {
-        onNotify("Authenticated via Google successfully!", "success");
-        onLoginSuccess(resJson.user);
-      } else {
-        onNotify(resJson.message || "Failed to link Google account to faculty records", "error");
-      }
-    } catch (err: any) {
-      console.error(err);
-      onNotify(err.message || "Google authentication failed", "error");
-    } finally {
+    } catch (error: any) {
+      console.error("Google login initiation error:", error);
+      onNotify(error.message || "Failed to initiate Google Sign-In", "error");
       setLoading(false);
     }
   };

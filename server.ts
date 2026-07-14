@@ -607,6 +607,443 @@ async function startServer() {
     }
   });
 
+  // ==========================================
+  // CUSTOM GOOGLE OAUTH FLOW ENDPOINTS
+  // ==========================================
+
+  app.get("/api/auth/google/url", (req, res) => {
+    const { redirect_uri } = req.query;
+    if (!redirect_uri) {
+      return res.status(400).json({ success: false, message: "redirect_uri query parameter is required" });
+    }
+
+    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+    if (GOOGLE_CLIENT_ID) {
+      const stateObj = { redirect_uri: redirect_uri.toString() };
+      const params = new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        redirect_uri: redirect_uri.toString(),
+        response_type: "code",
+        scope: "openid profile email",
+        state: JSON.stringify(stateObj),
+        prompt: "select_account",
+      });
+      res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
+    } else {
+      res.json({ url: `/api/auth/google/sandbox-selector?redirect_uri=${encodeURIComponent(redirect_uri.toString())}&state=${encodeURIComponent(JSON.stringify({ redirect_uri: redirect_uri.toString() }))}` });
+    }
+  });
+
+  app.get("/api/auth/google/sandbox-selector", (req, res) => {
+    const { redirect_uri, state } = req.query;
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Sign in - Google Accounts</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              margin: 0;
+              background-color: #f0f4f9;
+              color: #1f1f1f;
+            }
+            .box {
+              background: white;
+              width: 100%;
+              max-width: 450px;
+              border-radius: 28px;
+              padding: 40px;
+              box-sizing: border-box;
+              border: 1px solid #e0e0e0;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            }
+            .logo {
+              text-align: center;
+              margin-bottom: 16px;
+            }
+            .title {
+              font-size: 24px;
+              font-weight: 400;
+              text-align: center;
+              margin: 0 0 8px 0;
+            }
+            .subtitle {
+              font-size: 16px;
+              text-align: center;
+              color: #444746;
+              margin: 0 0 24px 0;
+            }
+            .account-list {
+              list-style: none;
+              padding: 0;
+              margin: 0 0 24px 0;
+            }
+            .account-item {
+              display: flex;
+              align-items: center;
+              padding: 12px 16px;
+              border-bottom: 1px solid #f1f3f4;
+              cursor: pointer;
+              transition: background 0.2s;
+              border-radius: 12px;
+              margin-bottom: 8px;
+            }
+            .account-item:hover {
+              background-color: #f8fafc;
+            }
+            .avatar {
+              width: 40px;
+              height: 40px;
+              border-radius: 50%;
+              margin-right: 12px;
+              background-color: #1e3a8a;
+              color: white;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 500;
+              object-fit: cover;
+            }
+            .details {
+              flex-grow: 1;
+            }
+            .name {
+              font-size: 14px;
+              font-weight: 500;
+            }
+            .email {
+              font-size: 12px;
+              color: #5f6368;
+            }
+            .form-group {
+              margin-bottom: 16px;
+            }
+            input {
+              width: 100%;
+              padding: 12px 16px;
+              border: 1px solid #747775;
+              border-radius: 8px;
+              box-sizing: border-box;
+              font-size: 14px;
+              background-color: #fcfcfc;
+            }
+            input:focus {
+              outline: none;
+              border: 2px solid #0b57d0;
+              background-color: #fff;
+            }
+            .btn-submit {
+              background-color: #0b57d0;
+              color: white;
+              border: none;
+              padding: 12px 24px;
+              font-size: 14px;
+              font-weight: 500;
+              border-radius: 100px;
+              cursor: pointer;
+              width: 100%;
+              transition: background-color 0.2s;
+            }
+            .btn-submit:hover {
+              background-color: #0842a0;
+            }
+            .footer {
+              display: flex;
+              justify-content: space-between;
+              font-size: 12px;
+              color: #444746;
+              margin-top: 24px;
+            }
+            .alert {
+              background-color: #e8f0fe;
+              border: 1px solid #c2e7ff;
+              color: #004a77;
+              padding: 12px;
+              border-radius: 12px;
+              font-size: 12px;
+              margin-bottom: 20px;
+              line-height: 1.4;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="box">
+            <div class="logo">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+              </svg>
+            </div>
+            <h1 class="title">Choose an account</h1>
+            <p class="subtitle">to continue to Attendance Console</p>
+            
+            <div class="alert">
+              <strong>Demo Sandbox Mode:</strong> Google client credentials are not defined in the workspace env. You can sign in instantly using these demo profiles or specify a custom email.
+            </div>
+
+            <ul class="account-list">
+              <li class="account-item" onclick="selectAccount('Dean Dr. Rajesh Kumar', 'dean@university.edu', 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=150&q=80')">
+                <img class="avatar" src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=150&q=80" />
+                <div class="details">
+                  <div class="name">Dr. Rajesh Kumar (Dean)</div>
+                  <div class="email">dean@university.edu</div>
+                </div>
+              </li>
+              <li class="account-item" onclick="selectAccount('Prof. Sarah D\\'Souza', 'sarah.dsouza@university.edu', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80')">
+                <img class="avatar" src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80" />
+                <div class="details">
+                  <div class="name">Prof. Sarah D'Souza (CSE Dept)</div>
+                  <div class="email">sarah.dsouza@university.edu</div>
+                </div>
+              </li>
+            </ul>
+
+            <div style="text-align: center; margin-bottom: 16px; font-size: 13px; color: #747775;">— Or use a custom email —</div>
+
+            <form id="custom-form" onsubmit="handleCustom(event)">
+              <div class="form-group">
+                <input type="text" id="cust-name" placeholder="Full Name" required />
+              </div>
+              <div class="form-group">
+                <input type="email" id="cust-email" placeholder="Email address" required />
+              </div>
+              <button type="submit" class="btn-submit">Sign In as Custom Faculty</button>
+            </form>
+
+            <div class="footer">
+              <span>English (United States)</span>
+              <span style="display: flex; gap: 16px;">
+                <span>Help</span>
+                <span>Privacy</span>
+                <span>Terms</span>
+              </span>
+            </div>
+          </div>
+
+          <script>
+            const stateStr = "${encodeURIComponent(state ? state.toString() : '')}";
+            const redirectUri = "${encodeURIComponent(redirect_uri ? redirect_uri.toString() : '')}";
+
+            function selectAccount(name, email, photo) {
+              const stateObj = {
+                redirect_uri: decodeURIComponent(redirectUri),
+                isSandbox: true,
+                email: email,
+                name: name,
+                photo: photo
+              };
+              const nextState = encodeURIComponent(JSON.stringify(stateObj));
+              window.location.href = "/api/auth/google/callback?code=mock_sandbox_code&state=" + nextState;
+            }
+
+            function handleCustom(e) {
+              e.preventDefault();
+              const name = document.getElementById("cust-name").value;
+              const email = document.getElementById("cust-email").value;
+              const defaultPhoto = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80";
+              selectAccount(name, email, defaultPhoto);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+  });
+
+  app.get("/api/auth/google/callback", async (req, res) => {
+    const { code, state, error } = req.query;
+    
+    if (error) {
+      return res.send(getErrorHtml(error.toString()));
+    }
+
+    let redirectUri = "";
+    let isSandbox = false;
+    let sandboxEmail = "";
+    let sandboxName = "";
+    let sandboxPhoto = "";
+
+    try {
+      if (state) {
+        const stateData = JSON.parse(decodeURIComponent(state.toString()));
+        redirectUri = stateData.redirect_uri;
+        isSandbox = !!stateData.isSandbox;
+        if (isSandbox) {
+          sandboxEmail = stateData.email;
+          sandboxName = stateData.name;
+          sandboxPhoto = stateData.photo;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse state", e);
+    }
+
+    try {
+      let email = "";
+      let name = "";
+      let photo = "";
+
+      if (isSandbox) {
+        email = sandboxEmail;
+        name = sandboxName;
+        photo = sandboxPhoto;
+      } else {
+        const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+        const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+        if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+          throw new Error("Google OAuth credentials are not configured on the server.");
+        }
+
+        // Exchange code for token
+        const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            code: code!.toString(),
+            client_id: GOOGLE_CLIENT_ID,
+            client_secret: GOOGLE_CLIENT_SECRET,
+            redirect_uri: redirectUri,
+            grant_type: "authorization_code",
+          }),
+        });
+
+        if (!tokenRes.ok) {
+          const errText = await tokenRes.text();
+          throw new Error(`Token exchange failed: ${errText}`);
+        }
+
+        const tokens: any = await tokenRes.json();
+        
+        // Fetch user info
+        const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+
+        if (!userRes.ok) {
+          throw new Error("Failed to fetch user info from Google");
+        }
+
+        const profile: any = await userRes.json();
+        email = profile.email;
+        name = profile.name;
+        photo = profile.picture;
+      }
+
+      if (!email) {
+        throw new Error("No email found in Google profile");
+      }
+
+      // Find or create the user in the database
+      let user = await dbHelper.get("SELECT * FROM faculty WHERE LOWER(email) = LOWER(?)", email);
+      const defaultPic = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80";
+
+      if (!user) {
+        // Auto-register faculty on-the-fly
+        const resolvedName = name || "Faculty Member";
+        const randomPassword = Math.random().toString(36).substring(2, 12);
+        const hashedPassword = hashPassword(randomPassword);
+        const userPic = photo || defaultPic;
+
+        const info = await dbHelper.run(`
+          INSERT INTO faculty (name, email, password, phone, department_id, profile_pic, photo)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, resolvedName, email, hashedPassword, "", 1, userPic, userPic);
+
+        user = await dbHelper.get("SELECT * FROM faculty WHERE id = ?", info.lastInsertRowid);
+      }
+
+      // Ensure compatibility properties are populated
+      if (!user.full_name) user.full_name = user.name || "Faculty Member";
+      if (!user.username) {
+        user.username = user.email ? user.email.split("@")[0] : "faculty";
+      }
+      if (!user.photo && user.profile_pic) user.photo = user.profile_pic;
+      if (!user.profile_pic && user.photo) user.profile_pic = user.photo;
+
+      // Update photo if Google photo is provided and currently using default or empty
+      if (photo && (user.photo === defaultPic || !user.photo)) {
+        await dbHelper.run("UPDATE faculty SET photo = ?, profile_pic = ? WHERE id = ?", photo, photo, user.id);
+        user.photo = photo;
+        user.profile_pic = photo;
+      }
+
+      const token = generateToken(user.id, user.email);
+      const { password: _, ...safeUser } = user;
+      const finalUser = { ...safeUser, token };
+
+      // Return HTML that sends postMessage and closes
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Authentication Successful</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+                background-color: #f8fafc;
+                color: #1e293b;
+              }
+              .card {
+                background: white;
+                padding: 2rem;
+                border-radius: 1rem;
+                box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+                text-align: center;
+                max-width: 400px;
+              }
+              .spinner {
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid #3b82f6;
+                border-radius: 50%;
+                width: 24px;
+                height: 24px;
+                animation: spin 1s linear infinite;
+                margin: 1rem auto;
+              }
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h2 style="color: #0f172a; margin: 0 0 8px 0; font-size: 20px;">Sign In Successful!</h2>
+              <p style="color: #64748b; font-size: 14px; margin: 0 0 16px 0;">Syncing session with the University Attendance Portal...</p>
+              <div class="spinner"></div>
+              <script>
+                const userPayload = ${JSON.stringify(finalUser)};
+                if (window.opener) {
+                  window.opener.postMessage({ type: 'GOOGLE_SIGNIN_SUCCESS', user: userPayload }, '*');
+                  window.close();
+                } else {
+                  localStorage.setItem("google_signin_user", JSON.stringify(userPayload));
+                  window.location.href = '/';
+                }
+              </script>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (err: any) {
+      res.send(getErrorHtml(err.message));
+    }
+  });
+
   app.post("/api/auth/register", async (req, res) => {
     const { name, full_name, username, email, password, phone, department_id } = req.body;
     try {
@@ -1603,3 +2040,61 @@ async function startServer() {
 }
 
 startServer();
+
+function getErrorHtml(message: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Authentication Failed</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #fff1f2;
+            color: #9f1239;
+          }
+          .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            text-align: center;
+            max-width: 450px;
+            border: 1px solid #fecdd3;
+          }
+          .btn {
+            display: inline-block;
+            margin-top: 1.5rem;
+            background-color: #e11d48;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-weight: 500;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h2 style="margin: 0 0 8px 0; font-size: 20px;">Authentication Error</h2>
+          <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.5; color: #be123c;">${escapeHtml(message)}</p>
+          <a href="#" class="btn" onclick="window.close()">Close Window</a>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
