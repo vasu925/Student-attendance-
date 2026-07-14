@@ -98,6 +98,37 @@ The application will launch on port `3000` and will be accessible at:
 
 ---
 
+## 🛠️ Localhost Troubleshooting Guide
+
+If you clone the repository and find that it is not opening on `localhost`, please check the following common issues and solutions:
+
+### 1. Port 3000 Already in Use
+By default, the backend runs on port `3000`. If you already have another app or server running on port `3000`, the server will fail to start.
+*   **Solution**: Create a `.env` file in the root directory (by copying `.env.example`) and configure the `PORT` variable to use a different port:
+    ```env
+    PORT=3005
+    ```
+    Now, the application will launch on [http://localhost:3005](http://localhost:3005) instead.
+
+### 2. Node.js Version Compatibility
+Ensure you are using Node.js **version 18 or higher** (v20+ is highly recommended). Older versions of Node do not support modern ES Module features or global standard fetch.
+*   **Check version**: Run `node -v` in your terminal.
+*   **Update**: If your version is old, download the latest LTS release from [nodejs.org](https://nodejs.org/).
+
+### 3. Native Binary Compilations (`better-sqlite3` issues)
+`better-sqlite3` is a fast database connector but compiles C++ binaries during installation. If `npm install` prints errors about `node-gyp` or missing visual compiler tools:
+*   **On Windows**: Run PowerShell as Administrator and execute `npm install --global --production windows-build-tools` or install [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
+*   **On Mac**: Make sure Xcode command-line tools are installed by running `xcode-select --install` in your terminal.
+*   **Alternative**: You can also use Node's built-in modules or run the dependencies with `--legacy-peer-deps`.
+
+### 4. Browser Blank Page or Cache issue
+If the terminal logs that the server is running but your browser shows a blank page:
+*   Open the browser's developer console (F12 or right-click -> Inspect -> Console) and check for errors.
+*   Try accessing the page via `http://127.0.0.1:3000` instead of `http://localhost:3000` (some operating systems resolve `localhost` differently).
+*   Perform a hard refresh (`Ctrl + F5` on Windows or `Cmd + Shift + R` on Mac) to clear any cached assets.
+
+---
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.
